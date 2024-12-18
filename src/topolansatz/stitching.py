@@ -1,7 +1,7 @@
 from qiskit import QuantumCircuit
 import networkx as nx
 from typing import List, Dict, Tuple, Optional
-from ..core.evaluator import CircuitEvaluator
+from .evaluator import CircuitEvaluator  # Change to relative import
 
 class CircuitStitcher:
     def __init__(self, evaluator: CircuitEvaluator, topology: nx.Graph):
@@ -93,9 +93,9 @@ class CircuitStitcher:
         return combined
 
     def optimize_stitching(self,
-                          subcircuits: List[QuantumCircuit],
-                          subgraph_mappings: List[Dict[int, int]],
-                          n_connections: int = 2) -> QuantumCircuit:
+                        subcircuits: List[QuantumCircuit],
+                        subgraph_mappings: List[Dict[int, int]],
+                        n_connections: int = 2) -> QuantumCircuit:
         """Find optimal stitching pattern for subcircuits."""
         best_circuit = None
         best_score = float('inf')
@@ -107,10 +107,13 @@ class CircuitStitcher:
         for stitch_type in ['cnot', 'swap']:
             from itertools import combinations
             for conn_subset in combinations(possible_connections, n_connections):
-                circuit = self.stitch_circuits(subcircuits, 
-                                            subgraph_mappings,
-                                            conn_subset, 
-                                            stitch_type)
+                circuit = self.stitch_circuits(
+                    subcircuits=subcircuits,
+                    subgraph_mappings=subgraph_mappings,
+                    connections=conn_subset,
+                    stitch_type=stitch_type
+                )
+                
                 metrics = self.evaluator.get_circuit_metrics(circuit)
                 
                 # Score based on balance of expressivity and entanglement
@@ -119,5 +122,5 @@ class CircuitStitcher:
                 if score < best_score:
                     best_score = score
                     best_circuit = circuit
-                    
-        return best_circuit
+                        
+        return best_circuit if best_circuit is not None else subcircuits[0]  # Fallback to first subcircuit if no stitching possible

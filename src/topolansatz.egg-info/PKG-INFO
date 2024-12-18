@@ -1,0 +1,9 @@
+Metadata-Version: 2.1
+Name: topolansatz
+Version: 0.1
+Requires-Dist: qiskit
+Requires-Dist: qiskit-aer
+Requires-Dist: networkx
+Requires-Dist: scipy
+Requires-Dist: numpy
+Requires-Dist: matplotlib

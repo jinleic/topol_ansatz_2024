@@ -17,11 +17,12 @@ class TopologyHandler:
         # Cache for storing computed subgraphs
         self._subgraph_cache = {}
 
+    # In topology.py
     def get_connected_subgraphs(self, n_qubits: int) -> List[nx.Graph]:
         """Find all connected subgraphs of size n_qubits.
 
         Args:
-            n_qubits: Number of qubits in subgraph (3-6)
+            n_qubits: Number of qubits in subgraph (2-6)
 
         Returns:
             List of subgraphs with their original qubit indices
@@ -29,8 +30,9 @@ class TopologyHandler:
         if n_qubits in self._subgraph_cache:
             return self._subgraph_cache[n_qubits]
 
-        if not 3 <= n_qubits <= 6:
-            raise ValueError("Subgraph size must be between 3 and 6 qubits")
+        # Modified constraint to allow 2-qubit subcircuits
+        if not 2 <= n_qubits <= 6:
+            raise ValueError("Subgraph size must be between 2 and 6 qubits")
 
         subgraphs = []
         # Get all possible combinations of n_qubits vertices
@@ -42,6 +44,9 @@ class TopologyHandler:
 
         self._subgraph_cache[n_qubits] = subgraphs
         return subgraphs
+
+
+
 
     def normalize_indices(self, subgraph: nx.Graph) -> Tuple[nx.Graph, Dict[int, int]]:
         """Create a normalized version of subgraph with sequential indices 0...n-1.

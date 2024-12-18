@@ -1,0 +1,7 @@
+README.md
+setup.py
+src/topolansatz.egg-info/PKG-INFO
+src/topolansatz.egg-info/SOURCES.txt
+src/topolansatz.egg-info/dependency_links.txt
+src/topolansatz.egg-info/requires.txt
+src/topolansatz.egg-info/top_level.txt

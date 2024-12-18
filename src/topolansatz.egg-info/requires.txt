@@ -1,0 +1,6 @@
+qiskit
+qiskit-aer
+networkx
+scipy
+numpy
+matplotlib
