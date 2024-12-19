@@ -73,70 +73,80 @@ class TopolAnsatz:
         return self.evaluator.get_circuit_metrics(ansatz)
 
 
-
     def generate_partitioned_ansatz(self,
-                                total_qubits: int = 10,
-                                partition_sizes: List[int] = None,
-                                depth: int = 2) -> QuantumCircuit:
-        """Generate ansatz with specified partition sizes.
+                                  partition_sizes: List[int],
+                                  depth: int = 2,
+                                  specific_subgraphs: List[set] = None) -> QuantumCircuit:
+        """Generate partitioned ansatz with stitching between partitions.
         
         Args:
-            total_qubits: Total number of qubits in the system
-            partition_sizes: List of integers specifying size of each partition
+            partition_sizes: List of partition sizes (must sum to 10)
             depth: Depth of each subcircuit
-        
+            specific_subgraphs: List of sets, each containing qubit indices for a connected subgraph
+            
         Returns:
-            Combined quantum circuit
+            Combined quantum circuit with stitching
         """
-        if partition_sizes is None:
-            # Default partitioning for 10 qubits: 4+4+2
-            partition_sizes = [4, 4, 2]
+        if specific_subgraphs:
+            # Validate provided subgraphs
+            for subgraph in specific_subgraphs:
+                if not nx.is_connected(self.topology.graph.subgraph(subgraph)):
+                    raise ValueError(f"Subgraph {subgraph} is not connected")
+            
+            used_qubits = set().union(*specific_subgraphs)
+            if len(used_qubits) != 10:
+                raise ValueError(f"Subgraphs must use all 10 qubits, got {len(used_qubits)}")
+            
+            # Use the provided subgraphs
+            subgraphs = [self.topology.graph.subgraph(sg) for sg in specific_subgraphs]
+            
+        else:
+            # Original logic for finding subgraphs
+            subgraphs = []
+            used_qubits = set()
+            
+            for size in partition_sizes:
+                valid_subgraph = None
+                for sg in self.topology.get_connected_subgraphs(size):
+                    sg_qubits = set(sg.nodes())
+                    if not sg_qubits.intersection(used_qubits):
+                        valid_subgraph = sg
+                        used_qubits.update(sg_qubits)
+                        break
+                
+                if valid_subgraph is None:
+                    raise ValueError(f"Could not find valid {size}-qubit subgraph")
+                subgraphs.append(valid_subgraph)
         
-        if sum(partition_sizes) != total_qubits:
-            raise ValueError(f"Partition sizes {partition_sizes} must sum to total_qubits {total_qubits}")
-        
-        # Store subcircuits and their mappings
+        # Generate subcircuits
         subcircuits = []
         subgraph_mappings = []
-        used_qubits = set()
         
-        # Generate subcircuits for each partition
-        for i, size in enumerate(partition_sizes):
-            # Find valid subgraph of required size that doesn't overlap
-            valid_subgraph = None
-            for subgraph in self.topology.get_connected_subgraphs(size):
-                subgraph_qubits = set(subgraph.nodes())
-                if not subgraph_qubits.intersection(used_qubits):
-                    valid_subgraph = subgraph
-                    used_qubits.update(subgraph_qubits)
-                    break
-            
-            if valid_subgraph is None:
-                raise ValueError(f"Could not find non-overlapping subgraph of size {size}")
-            
-            # Normalize and build circuit
-            norm_graph, mapping = self.topology.normalize_indices(valid_subgraph)
+        for i, subgraph in enumerate(subgraphs):
+            norm_graph, mapping = self.topology.normalize_indices(subgraph)
             builder = CircuitBuilder(norm_graph, f"sub_{i}")
             subcircuit = builder.create_circuit(depth)
-            
             subcircuits.append(subcircuit)
             subgraph_mappings.append(mapping)
         
-        # Find stitching points between adjacent subcircuits
-        stitching_points = []
-        for i in range(len(subcircuits)-1):
+        # Find stitching points
+        connections = []
+        for i in range(len(subgraphs) - 1):
             map1 = subgraph_mappings[i]
             map2 = subgraph_mappings[i+1]
-            connections = self.stitcher.find_connection_points([map1, map2])
-            if connections:
-                stitching_points.extend(connections[:2])  # Take up to 2 connections between each pair
+            conn_points = self.stitcher.find_connection_points([map1, map2])
+            if conn_points:
+                connections.extend(conn_points[:2])  # Take up to 2 connections between partitions
         
         # Generate final stitched circuit
-        return self.stitcher.optimize_stitching(
+        final_circuit = self.stitcher.stitch_circuits(
             subcircuits=subcircuits,
             subgraph_mappings=subgraph_mappings,
-            n_connections=len(stitching_points)
+            connections=connections
         )
+        
+        return final_circuit
+
 
 def main():
     # Example usage
